@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "697679872972",
+    "project_id": "com-example-musical-9128e",
+    "storage_bucket": "com-example-musical-9128e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:697679872972:android:534e473924a0dd1bdfd369",
+        "android_client_info": {
+          "package_name": "com.example.musical"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDNRTvqs5V8RBOxdr6I-zIqgbYei3HWX7Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
