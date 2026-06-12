@@ -4,34 +4,15 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.LibraryMusic
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavController
-import androidx.navigation.compose.currentBackStackEntryAsState
 import com.example.musical.data.model.Song
 import com.example.musical.ui.components.SongCard
-import com.example.musical.ui.navigation.Screen
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun MainScreen(navController: NavController, content: @Composable (PaddingValues) -> Unit) {
-    Scaffold(
-        bottomBar = {
-            MusicalBottomNavigation(navController)
-        }
-    ) { padding ->
-        content(padding)
-    }
-}
+import java.util.Calendar
 
 @Composable
 fun HomeScreen() {
@@ -61,6 +42,15 @@ fun HomeScreen() {
 
 @Composable
 fun HomeHeader() {
+    val greeting = remember {
+        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+        when (hour) {
+            in 5..11 -> "Good Morning"
+            in 12..16 -> "Good Afternoon"
+            else -> "Good Evening"
+        }
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -68,7 +58,7 @@ fun HomeHeader() {
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(
-            text = "Good Evening",
+            text = greeting,
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold
         )
@@ -102,41 +92,3 @@ fun RecentlyPlayedSection() {
         }
     }
 }
-
-@Composable
-fun MusicalBottomNavigation(navController: NavController) {
-    val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = navBackStackEntry?.destination?.route
-
-    NavigationBar(
-        containerColor = MaterialTheme.colorScheme.surface,
-    ) {
-        val items = listOf(
-            NavigationItem("Home", Icons.Default.Home, Screen.Home.route),
-            NavigationItem("Search", Icons.Default.Search, Screen.Search.route),
-            NavigationItem("Library", Icons.Default.LibraryMusic, Screen.Library.route),
-            NavigationItem("Profile", Icons.Default.Person, Screen.Profile.route)
-        )
-        
-        items.forEach { item ->
-            NavigationBarItem(
-                icon = { Icon(item.icon, contentDescription = item.title) },
-                label = { Text(item.title) },
-                selected = currentRoute == item.route,
-                onClick = {
-                    if (currentRoute != item.route) {
-                        navController.navigate(item.route) {
-                            popUpTo(Screen.Home.route) {
-                                saveState = true
-                            }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    }
-                }
-            )
-        }
-    }
-}
-
-data class NavigationItem(val title: String, val icon: ImageVector, val route: String)

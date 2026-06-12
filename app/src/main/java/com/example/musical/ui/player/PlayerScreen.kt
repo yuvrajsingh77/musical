@@ -6,7 +6,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -19,7 +19,14 @@ import coil.compose.AsyncImage
 import com.example.musical.data.model.Song
 
 @Composable
-fun PlayerScreen(song: Song) {
+fun PlayerScreen(song: Song, viewModel: PlayerViewModel = androidx.lifecycle.viewmodel.compose.viewModel()) {
+    val isPlaying by viewModel.isPlaying.collectAsState()
+    val currentPositionMs by viewModel.currentPositionMs.collectAsState()
+    
+    LaunchedEffect(song) {
+        viewModel.setSong(song)
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -50,7 +57,7 @@ fun PlayerScreen(song: Song) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = song.title,
                     style = MaterialTheme.typography.headlineSmall,
@@ -71,8 +78,8 @@ fun PlayerScreen(song: Song) {
         Spacer(modifier = Modifier.height(24.dp))
         
         Slider(
-            value = 0.3f,
-            onValueChange = {},
+            value = if (song.durationMs > 0) currentPositionMs.toFloat() / song.durationMs else 0f,
+            onValueChange = { viewModel.seekTo((it * song.durationMs).toInt()) },
             colors = SliderDefaults.colors(
                 thumbColor = Color.White,
                 activeTrackColor = Color.White,
@@ -84,8 +91,16 @@ fun PlayerScreen(song: Song) {
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(text = "1:05", color = Color.LightGray, style = MaterialTheme.typography.bodySmall)
-            Text(text = "3:45", color = Color.LightGray, style = MaterialTheme.typography.bodySmall)
+            Text(
+                text = formatTime(currentPositionMs),
+                color = Color.LightGray,
+                style = MaterialTheme.typography.bodySmall
+            )
+            Text(
+                text = formatTime(song.durationMs),
+                color = Color.LightGray,
+                style = MaterialTheme.typography.bodySmall
+            )
         }
         
         Spacer(modifier = Modifier.height(24.dp))
@@ -102,12 +117,16 @@ fun PlayerScreen(song: Song) {
                 Icon(Icons.Default.SkipPrevious, contentDescription = null, tint = Color.White)
             }
             IconButton(
-                onClick = { /* TODO */ },
+                onClick = { if (isPlaying) viewModel.pause() else viewModel.play() },
                 modifier = Modifier
                     .size(64.dp)
                     .background(Color.White, RoundedCornerShape(32.dp))
             ) {
-                Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.Black)
+                Icon(
+                    imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                    contentDescription = null,
+                    tint = Color.Black
+                )
             }
             IconButton(onClick = { /* TODO */ }, modifier = Modifier.size(48.dp)) {
                 Icon(Icons.Default.SkipNext, contentDescription = null, tint = Color.White)
@@ -117,4 +136,11 @@ fun PlayerScreen(song: Song) {
             }
         }
     }
+}
+
+private fun formatTime(ms: Int): String {
+    val totalSeconds = ms / 1000
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+    return String.format("%d:%02d", minutes, seconds)
 }
