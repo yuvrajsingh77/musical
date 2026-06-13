@@ -64,7 +64,8 @@ fun MusicalNavHost(
             HomeScreen(
                 navController = navController,
                 homeViewModel = homeViewModel,
-                playerViewModel = playerViewModel
+                playerViewModel = playerViewModel,
+                authViewModel = authViewModel
             )
         }
         composable(Screen.Search.route) {

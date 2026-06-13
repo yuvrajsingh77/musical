@@ -62,6 +62,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private val _currentIndex = MutableStateFlow(-1)
     val currentIndex: StateFlow<Int> = _currentIndex.asStateFlow()
 
+    private val _lyrics = MutableStateFlow<String?>(null)
+    val lyrics: StateFlow<String?> = _lyrics.asStateFlow()
+
+
     private val playerListener = object : Player.Listener {
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             val player = controller ?: return
@@ -155,27 +159,58 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun setSong(song: Song) {
-        // Only set if song is different AND has a valid stream URL
         if (_song.value?.id == song.id) return
-        if (song.streamUrl.isNullOrEmpty()) return
         setQueue(listOf(song), 0)
     }
 
     fun setQueue(songs: List<Song>, startIndex: Int) {
-        val validSongs = songs.filter { !it.streamUrl.isNullOrEmpty() }
-        if (validSongs.isEmpty()) return
-        val safeIndex = startIndex.coerceIn(0, validSongs.size - 1)
-
-        _queue.value = validSongs
+        if (songs.isEmpty()) return
+        val safeIndex = startIndex.coerceIn(0, songs.size - 1)
+        _queue.value = songs
         _currentIndex.value = safeIndex
-        _song.value = validSongs[safeIndex]
+        _song.value = songs[safeIndex]
 
-        val player = controller
-        if (player == null) {
-            pendingQueue = Pair(validSongs, safeIndex)
-            return
+        viewModelScope.launch {
+            val targetSong = songs[safeIndex]
+            // Fetch full 320kbps stream URL
+            val fullSong = try {
+                repository.getFullSong(targetSong.id)
+                    ?.takeIf { !it.streamUrl.isNullOrEmpty() }
+                    ?: targetSong
+            } catch (e: Exception) { targetSong }
+
+            // Update song in queue with full URL
+            val updated = _queue.value.toMutableList()
+            updated[safeIndex] = fullSong
+            _queue.value = updated
+            _song.value = fullSong
+
+            val player = controller
+            if (player == null) {
+                pendingQueue = Pair(updated, safeIndex)
+            } else {
+                applyQueue(player, updated, safeIndex)
+            }
+
+            // Pre-fetch next song in background
+            if (safeIndex + 1 < songs.size) {
+                try {
+                    val nextSong = repository.getFullSong(songs[safeIndex + 1].id)
+                    if (nextSong != null && !nextSong.streamUrl.isNullOrEmpty()) {
+                        val q = _queue.value.toMutableList()
+                        q[safeIndex + 1] = nextSong
+                        _queue.value = q
+                    }
+                } catch (e: Exception) { }
+            }
         }
-        applyQueue(player, validSongs, safeIndex)
+    }
+
+    fun fetchLyrics() {
+        val songId = _song.value?.id ?: return
+        viewModelScope.launch {
+            _lyrics.value = repository.getLyrics(songId)
+        }
     }
 
     private fun applyQueue(player: MediaController, songs: List<Song>, startIndex: Int) {

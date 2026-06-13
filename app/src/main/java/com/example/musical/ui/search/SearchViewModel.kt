@@ -17,8 +17,8 @@ import kotlinx.coroutines.launch
 sealed class SearchUiState {
     object Idle : SearchUiState()
     object Loading : SearchUiState()
-    object Empty : SearchUiState()
     data class Results(val songs: List<Song>) : SearchUiState()
+    data class Empty(val query: String) : SearchUiState()
     data class Error(val message: String) : SearchUiState()
 }
 
@@ -54,14 +54,13 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
         _uiState.value = SearchUiState.Loading
         try {
             val results = repository.searchSongs(q)
-            if (results.isEmpty() && _query.value.isNotBlank()) {
-                _uiState.value = SearchUiState.Empty
+            _uiState.value = if (results.isEmpty()) {
+                SearchUiState.Empty(q)
             } else {
-                _uiState.value = SearchUiState.Results(results)
+                SearchUiState.Results(results)
             }
         } catch (e: Exception) {
-            e.printStackTrace()
-            _uiState.value = SearchUiState.Error(e.localizedMessage ?: "Failed to perform search. Check internet.")
+            _uiState.value = SearchUiState.Error("Couldn't search. Check your connection.")
         }
     }
 

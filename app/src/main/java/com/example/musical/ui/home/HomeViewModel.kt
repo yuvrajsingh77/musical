@@ -36,6 +36,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _trendingNow = MutableStateFlow<List<Song>>(emptyList())
     val trendingNow: StateFlow<List<Song>> = _trendingNow.asStateFlow()
 
+    private val _newReleases = MutableStateFlow<List<Song>>(emptyList())
+    val newReleases: StateFlow<List<Song>> = _newReleases.asStateFlow()
+
+    private val _topCharts = MutableStateFlow<List<Song>>(emptyList())
+    val topCharts: StateFlow<List<Song>> = _topCharts.asStateFlow()
+
     val recentlyPlayed: StateFlow<List<Song>> = repository.getRecentlyPlayed()
         .map { list -> list.map { it.toSong() } }
         .stateIn(
@@ -49,21 +55,30 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private val fallbackSongs = listOf(
-        Song("f1","Tum Hi Ho","Arijit Singh","Aashiqui 2",
-            "https://picsum.photos/seed/s1/300/300", 261000,
-            "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"),
-        Song("f2","Kesariya","Arijit Singh","Brahmastra",
-            "https://picsum.photos/seed/s2/300/300", 284000,
-            "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3"),
-        Song("f3","Raataan Lambiyan","Jubin Nautiyal","Shershaah",
-            "https://picsum.photos/seed/s3/300/300", 237000,
-            "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3"),
-        Song("f4","Apna Bana Le","Arijit Singh","Bhediya",
-            "https://picsum.photos/seed/s4/300/300", 258000,
-            "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3"),
-        Song("f5","Jhoome Jo Pathaan","Arijit Singh","Pathaan",
-            "https://picsum.photos/seed/s5/300/300", 203000,
-            "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3")
+        Song("f1", "Tum Hi Ho", "Arijit Singh", "Aashiqui 2",
+            "https://upload.wikimedia.org/wikipedia/en/6/61/Aashiqui_2_soundtrack.jpg",
+            261000, "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"),
+        Song("f2", "Kesariya", "Arijit Singh", "Brahmastra",
+            "https://upload.wikimedia.org/wikipedia/en/3/3b/Kesariya_single_cover.jpg",
+            263000, "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3"),
+        Song("f3", "Raataan Lambiyan", "Jubin Nautiyal", "Shershaah",
+            "https://upload.wikimedia.org/wikipedia/en/6/6b/Shershaah_film_poster.jpg",
+            237000, "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3"),
+        Song("f4", "Apna Bana Le", "Arijit Singh", "Bhediya",
+            "https://upload.wikimedia.org/wikipedia/en/0/04/Bhediya_film_poster.jpg",
+            258000, "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3"),
+        Song("f5", "Jhoome Jo Pathaan", "Arijit Singh", "Pathaan",
+            "https://upload.wikimedia.org/wikipedia/en/6/6d/Pathaan_film_poster.jpg",
+            203000, "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3"),
+        Song("f6", "Lutt Putt Gaya", "Arijit Singh", "Dunki",
+            "https://upload.wikimedia.org/wikipedia/en/9/9f/Dunki_film_poster.jpg",
+            318000, "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3"),
+        Song("f7", "Wahaan", "Jasleen Royal", "12th Fail",
+            "https://upload.wikimedia.org/wikipedia/en/4/49/12th_Fail_film_poster.jpg",
+            245000, "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3"),
+        Song("f8", "Ik Vaari Aa", "Arijit Singh", "Raazi",
+            "https://upload.wikimedia.org/wikipedia/en/c/c1/Raazi_2018_film_poster.jpg",
+            294000, "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3")
     )
 
     fun fetchData() {
@@ -72,12 +87,18 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val mix = repository.getDailyMix()
                 val trending = repository.getTrendingSongs()
+                val newReleases = repository.getNewReleases()
+                val topCharts = repository.getTopCharts()
                 _dailyMix.value = mix.ifEmpty { fallbackSongs }
                 _trendingNow.value = trending.ifEmpty { fallbackSongs.reversed() }
+                _newReleases.value = newReleases.ifEmpty { fallbackSongs.shuffled() }
+                _topCharts.value = topCharts.ifEmpty { fallbackSongs.shuffled() }
                 _uiState.value = HomeUiState.Success
             } catch (e: Exception) {
                 _dailyMix.value = fallbackSongs
                 _trendingNow.value = fallbackSongs.reversed()
+                _newReleases.value = fallbackSongs.shuffled()
+                _topCharts.value = fallbackSongs.shuffled()
                 _uiState.value = HomeUiState.Success
             }
         }

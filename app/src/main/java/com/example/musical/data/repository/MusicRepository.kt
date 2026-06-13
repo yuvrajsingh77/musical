@@ -18,21 +18,35 @@ class MusicRepository(
         return try {
             val response = RetrofitInstance.api.searchSongs(query)
             response.results
-                .filter { it.previewUrl != null && it.trackId != null }
-                .map { it.toSong() }
+                ?.filter { !it.id.isNullOrEmpty() }
+                ?.map { it.toSong() }
+                ?: emptyList()
         } catch (e: Exception) {
             e.printStackTrace()
             emptyList()
         }
     }
 
-    suspend fun getTrendingSongs(): List<Song> {
-        return searchSongs("Arijit Singh 2024")
+    suspend fun getFullSong(songId: String): Song? {
+        return try {
+            val detail = RetrofitInstance.api.getSongById(songId)
+            if (detail.status == true) detail.toSong() else null
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
     }
 
-    suspend fun getDailyMix(): List<Song> {
-        return searchSongs("Bollywood hits")
+    suspend fun getLyrics(songId: String): String? {
+        return try {
+            RetrofitInstance.api.getLyrics(songId).lyrics
+        } catch (e: Exception) { null }
     }
+
+    suspend fun getTrendingSongs(): List<Song> = searchSongs("top Bollywood 2024")
+    suspend fun getDailyMix(): List<Song> = searchSongs("Arijit Singh hits")
+    suspend fun getNewReleases(): List<Song> = searchSongs("new Hindi songs 2024")
+    suspend fun getTopCharts(): List<Song> = searchSongs("Punjabi hits 2024")
 
     fun getLikedSongs(): Flow<List<SongEntity>> {
         return songDao.getLikedSongs()

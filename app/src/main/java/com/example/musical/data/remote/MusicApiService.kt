@@ -1,15 +1,28 @@
 package com.example.musical.data.remote
 
-import com.example.musical.data.remote.dto.ItunesSearchResponse
+import com.example.musical.data.remote.dto.SaavnSearchResponse
+import com.example.musical.data.remote.dto.SaavnSongDetailResponse
 import retrofit2.http.GET
 import retrofit2.http.Query
 
 interface MusicApiService {
     @GET("search")
     suspend fun searchSongs(
-        @Query("term") term: String,
-        @Query("media") media: String = "music",
-        @Query("entity") entity: String = "song",
-        @Query("limit") limit: Int = 20
-    ): ItunesSearchResponse
+        @Query("query") query: String
+    ): SaavnSearchResponse
+
+    @GET("song")
+    suspend fun getSongById(
+        @Query("id") id: String
+    ): SaavnSongDetailResponse
+
+    @GET("lyrics")
+    suspend fun getLyrics(
+        @Query("id") id: String
+    ): SaavnLyricsResponse
 }
+
+data class SaavnLyricsResponse(
+    val status: Boolean?,
+    val lyrics: String?
+)
