@@ -17,11 +17,9 @@ class MusicRepository(
     suspend fun searchSongs(query: String): List<Song> {
         return try {
             val response = RetrofitInstance.api.searchSongs(query)
-            if (response.success) {
-                response.data.results.map { it.toSong() }
-            } else {
-                emptyList()
-            }
+            response.results
+                .filter { it.previewUrl != null && it.trackId != null }
+                .map { it.toSong() }
         } catch (e: Exception) {
             e.printStackTrace()
             emptyList()
@@ -29,11 +27,11 @@ class MusicRepository(
     }
 
     suspend fun getTrendingSongs(): List<Song> {
-        return searchSongs("trending hindi 2024")
+        return searchSongs("Arijit Singh 2024")
     }
 
     suspend fun getDailyMix(): List<Song> {
-        return searchSongs("top hits")
+        return searchSongs("Bollywood hits")
     }
 
     fun getLikedSongs(): Flow<List<SongEntity>> {

@@ -10,11 +10,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import coil.compose.AsyncImage
 import com.example.musical.ui.auth.AuthViewModel
 import com.example.musical.ui.navigation.Screen
 
@@ -26,8 +24,7 @@ fun ProfileScreen(
     val currentUser by authViewModel.currentUser.collectAsState()
     val displayName = currentUser?.displayName ?: "Guest"
     val email = currentUser?.email ?: ""
-    val photoUrl = currentUser?.photoUrl?.toString()
-    val initial = displayName.firstOrNull()?.uppercase() ?: "?"
+    val initial = displayName.firstOrNull()?.uppercase()?.toString() ?: "?"
 
     Column(
         modifier = Modifier
@@ -37,31 +34,20 @@ fun ProfileScreen(
     ) {
         Spacer(modifier = Modifier.height(48.dp))
 
-        // Avatar — use real photo or initial letter fallback
-        if (photoUrl != null) {
-            AsyncImage(
-                model = photoUrl,
-                contentDescription = "Profile photo",
-                modifier = Modifier
-                    .size(120.dp)
-                    .clip(CircleShape),
-                contentScale = ContentScale.Crop
-            )
-        } else {
-            Surface(
-                modifier = Modifier
-                    .size(120.dp)
-                    .clip(CircleShape),
-                color = Color(0xFF1DB954)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        text = initial,
-                        style = MaterialTheme.typography.displayLarge,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+        // Letter avatar only
+        Surface(
+            modifier = Modifier
+                .size(120.dp)
+                .clip(CircleShape),
+            color = Color(0xFF1DB954)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(
+                    text = initial,
+                    style = MaterialTheme.typography.displayLarge,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
 

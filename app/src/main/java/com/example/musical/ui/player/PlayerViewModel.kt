@@ -31,6 +31,7 @@ sealed class RepeatMode {
 class PlayerViewModel(application: Application) : AndroidViewModel(application) {
     private var controller: MediaController? = null
     private var controllerFuture: ListenableFuture<MediaController>? = null
+    private var pendingQueue: Pair<List<Song>, Int>? = null
 
     private val repository: MusicRepository by lazy {
         val db = MusicalDatabase.getInstance(application)
@@ -105,6 +106,11 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             try {
                 val player = controllerFuture?.get()
                 controller = player
+                // Apply any queued songs that came in before controller was ready
+                pendingQueue?.let { (songs, index) ->
+                    player?.let { applyQueue(it, songs, index) }
+                    pendingQueue = null
+                }
                 player?.addListener(playerListener)
                 
                 // Sync initial states if controller is already playing
@@ -149,37 +155,49 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun setSong(song: Song) {
+        // Only set if song is different AND has a valid stream URL
         if (_song.value?.id == song.id) return
+        if (song.streamUrl.isNullOrEmpty()) return
         setQueue(listOf(song), 0)
     }
 
     fun setQueue(songs: List<Song>, startIndex: Int) {
-        val player = controller ?: return
-        if (songs.isEmpty()) return
-        
-        _queue.value = songs
-        _currentIndex.value = startIndex
-        _song.value = songs[startIndex]
+        val validSongs = songs.filter { !it.streamUrl.isNullOrEmpty() }
+        if (validSongs.isEmpty()) return
+        val safeIndex = startIndex.coerceIn(0, validSongs.size - 1)
 
-        val mediaItems = songs.map { song ->
-            val targetUri = song.streamUrl ?: ""
-            val mediaMetadata = MediaMetadata.Builder()
-                .setTitle(song.title)
-                .setArtist(song.artist)
-                .setArtworkUri(Uri.parse(song.artworkUrl))
-                .build()
+        _queue.value = validSongs
+        _currentIndex.value = safeIndex
+        _song.value = validSongs[safeIndex]
 
+        val player = controller
+        if (player == null) {
+            pendingQueue = Pair(validSongs, safeIndex)
+            return
+        }
+        applyQueue(player, validSongs, safeIndex)
+    }
+
+    private fun applyQueue(player: MediaController, songs: List<Song>, startIndex: Int) {
+        val mediaItems = songs.mapNotNull { song ->
+            val uri = song.streamUrl ?: return@mapNotNull null
             MediaItem.Builder()
-                .setUri(targetUri)
-                .setMediaMetadata(mediaMetadata)
+                .setUri(uri)
+                .setMimeType("audio/mpeg")
+                .setMediaMetadata(
+                    MediaMetadata.Builder()
+                        .setTitle(song.title)
+                        .setArtist(song.artist)
+                        .setArtworkUri(Uri.parse(song.artworkUrl))
+                        .build()
+                )
                 .build()
         }
-
+        if (mediaItems.isEmpty()) return
         player.setMediaItems(mediaItems)
         player.seekToDefaultPosition(startIndex)
         player.prepare()
         player.play()
-        
         viewModelScope.launch {
             _isLiked.value = repository.isSongLiked(songs[startIndex].id)
         }

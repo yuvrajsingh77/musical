@@ -10,6 +10,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -63,13 +64,19 @@ fun HomeScreen(
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 item { HomeHeader() }
                 
-                if (recentlyPlayed.isNotEmpty()) {
-                    item {
-                        SectionTitle("Recently Played")
+                item {
+                    SectionTitle("Recently Played")
+                    if (recentlyPlayed.isNotEmpty()) {
                         SongSectionRow(
                             songs = recentlyPlayed,
                             navController = navController,
                             playerViewModel = playerViewModel
+                        )
+                    } else {
+                        Text(
+                            text = "Songs you play will appear here",
+                            color = Color.Gray,
+                            modifier = Modifier.padding(horizontal = 16.dp)
                         )
                     }
                 }

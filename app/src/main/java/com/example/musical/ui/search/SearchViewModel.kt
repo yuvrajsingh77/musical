@@ -17,6 +17,7 @@ import kotlinx.coroutines.launch
 sealed class SearchUiState {
     object Idle : SearchUiState()
     object Loading : SearchUiState()
+    object Empty : SearchUiState()
     data class Results(val songs: List<Song>) : SearchUiState()
     data class Error(val message: String) : SearchUiState()
 }
@@ -54,7 +55,7 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
         try {
             val results = repository.searchSongs(q)
             if (results.isEmpty() && _query.value.isNotBlank()) {
-                _uiState.value = SearchUiState.Error("No matching songs found.")
+                _uiState.value = SearchUiState.Empty
             } else {
                 _uiState.value = SearchUiState.Results(results)
             }

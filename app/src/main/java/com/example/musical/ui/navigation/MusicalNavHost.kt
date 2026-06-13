@@ -16,7 +16,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.example.musical.data.model.Song
-import com.example.musical.data.model.SongsRepository
 import com.example.musical.ui.auth.AuthViewModel
 import com.example.musical.ui.auth.LoginScreen
 import com.example.musical.ui.home.HomeScreen
@@ -115,23 +114,23 @@ fun MusicalNavHost(
             }
         ) { backStackEntry ->
             val songId = backStackEntry.arguments?.getString("songId")
-            
-            // Check if player already has a loaded queue/song matching this ID,
-            // otherwise build a fallback from SongsRepository or local cache.
-            val currentPlayingSong = playerViewModel.song.collectAsState().value
-            val song = if (currentPlayingSong != null && currentPlayingSong.id == songId) {
-                currentPlayingSong
-            } else {
-                SongsRepository.getSongById(songId) ?: Song(
+            val queue by playerViewModel.queue.collectAsState()
+            val currentSong by playerViewModel.song.collectAsState()
+
+            val song = currentSong?.takeIf { it.id == songId }
+                ?: queue.find { it.id == songId }
+                ?: Song(
                     id = songId ?: "",
-                    title = "Unknown Song",
-                    artist = "Unknown Artist",
-                    album = "Unknown Album",
-                    artworkUrl = "",
-                    durationMs = 210000 // 3:30
+                    title = "Loading...",
+                    artist = "", album = "",
+                    artworkUrl = "", durationMs = 0
                 )
-            }
-            PlayerScreen(song = song, viewModel = playerViewModel, navController = navController)
+
+            PlayerScreen(
+                song = song,
+                viewModel = playerViewModel,
+                navController = navController
+            )
         }
     }
 }
