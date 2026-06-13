@@ -1,12 +1,42 @@
 package com.example.musical.ui.player
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import android.content.ComponentName
+import android.net.Uri
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
+import androidx.media3.common.Player
+import androidx.media3.session.MediaController
+import androidx.media3.session.SessionToken
+import com.example.musical.data.local.MusicalDatabase
 import com.example.musical.data.model.Song
+import com.example.musical.data.repository.MusicRepository
+import com.example.musical.service.MusicService
+import com.google.common.util.concurrent.ListenableFuture
+import com.google.common.util.concurrent.MoreExecutors
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
-class PlayerViewModel : ViewModel() {
+sealed class RepeatMode {
+    object Off : RepeatMode()
+    object One : RepeatMode()
+    object All : RepeatMode()
+}
+
+class PlayerViewModel(application: Application) : AndroidViewModel(application) {
+    private var controller: MediaController? = null
+    private var controllerFuture: ListenableFuture<MediaController>? = null
+
+    private val repository: MusicRepository by lazy {
+        val db = MusicalDatabase.getInstance(application)
+        MusicRepository(db.songDao(), db.playlistDao())
+    }
+
     private val _isPlaying = MutableStateFlow(false)
     val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
 
@@ -16,19 +46,206 @@ class PlayerViewModel : ViewModel() {
     private val _song = MutableStateFlow<Song?>(null)
     val song: StateFlow<Song?> = _song.asStateFlow()
 
+    private val _isLiked = MutableStateFlow(false)
+    val isLiked: StateFlow<Boolean> = _isLiked.asStateFlow()
+
+    private val _isShuffled = MutableStateFlow(false)
+    val isShuffled: StateFlow<Boolean> = _isShuffled.asStateFlow()
+
+    private val _repeatMode = MutableStateFlow<RepeatMode>(RepeatMode.Off)
+    val repeatMode: StateFlow<RepeatMode> = _repeatMode.asStateFlow()
+
+    private val _queue = MutableStateFlow<List<Song>>(emptyList())
+    val queue: StateFlow<List<Song>> = _queue.asStateFlow()
+
+    private val _currentIndex = MutableStateFlow(-1)
+    val currentIndex: StateFlow<Int> = _currentIndex.asStateFlow()
+
+    private val playerListener = object : Player.Listener {
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            val player = controller ?: return
+            val index = player.currentMediaItemIndex
+            _currentIndex.value = index
+            if (index >= 0 && index < _queue.value.size) {
+                val currentSong = _queue.value[index]
+                _song.value = currentSong
+                viewModelScope.launch {
+                    _isLiked.value = repository.isSongLiked(currentSong.id)
+                }
+            } else if (mediaItem != null) {
+                val uri = mediaItem.localConfiguration?.uri?.toString()
+                val title = mediaItem.mediaMetadata.title?.toString() ?: "Unknown Song"
+                val artist = mediaItem.mediaMetadata.artist?.toString() ?: "Unknown Artist"
+                val artworkUrl = mediaItem.mediaMetadata.artworkUri?.toString() ?: ""
+                val currentSong = Song(
+                    id = uri ?: "",
+                    title = title,
+                    artist = artist,
+                    album = "Unknown Album",
+                    artworkUrl = artworkUrl,
+                    durationMs = player.duration.toInt(),
+                    streamUrl = uri
+                )
+                _song.value = currentSong
+                viewModelScope.launch {
+                    _isLiked.value = repository.isSongLiked(currentSong.id)
+                }
+            }
+        }
+
+        override fun onIsPlayingChanged(playing: Boolean) {
+            _isPlaying.value = playing
+        }
+    }
+
+    init {
+        val sessionToken = SessionToken(application, ComponentName(application, MusicService::class.java))
+        controllerFuture = MediaController.Builder(application, sessionToken).buildAsync()
+        controllerFuture?.addListener({
+            try {
+                val player = controllerFuture?.get()
+                controller = player
+                player?.addListener(playerListener)
+                
+                // Sync initial states if controller is already playing
+                player?.let {
+                    _isPlaying.value = it.isPlaying
+                    _currentPositionMs.value = it.currentPosition.toInt()
+                    _isShuffled.value = it.shuffleModeEnabled
+                    _repeatMode.value = when (it.repeatMode) {
+                        Player.REPEAT_MODE_ONE -> RepeatMode.One
+                        Player.REPEAT_MODE_ALL -> RepeatMode.All
+                        else -> RepeatMode.Off
+                    }
+                    val index = it.currentMediaItemIndex
+                    if (index >= 0 && index < _queue.value.size) {
+                        _song.value = _queue.value[index]
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }, MoreExecutors.directExecutor())
+
+        viewModelScope.launch {
+            var lastTrackId: String? = null
+            while (true) {
+                controller?.let { player ->
+                    _currentPositionMs.value = player.currentPosition.toInt()
+                    _isPlaying.value = player.isPlaying
+
+                    if (player.isPlaying) {
+                        _song.value?.let { currentSong ->
+                            if (lastTrackId != currentSong.id) {
+                                lastTrackId = currentSong.id
+                                repository.markAsPlayed(currentSong)
+                            }
+                        }
+                    }
+                }
+                delay(500)
+            }
+        }
+    }
+
     fun setSong(song: Song) {
-        _song.value = song
+        if (_song.value?.id == song.id) return
+        setQueue(listOf(song), 0)
+    }
+
+    fun setQueue(songs: List<Song>, startIndex: Int) {
+        val player = controller ?: return
+        if (songs.isEmpty()) return
+        
+        _queue.value = songs
+        _currentIndex.value = startIndex
+        _song.value = songs[startIndex]
+
+        val mediaItems = songs.map { song ->
+            val targetUri = song.streamUrl ?: ""
+            val mediaMetadata = MediaMetadata.Builder()
+                .setTitle(song.title)
+                .setArtist(song.artist)
+                .setArtworkUri(Uri.parse(song.artworkUrl))
+                .build()
+
+            MediaItem.Builder()
+                .setUri(targetUri)
+                .setMediaMetadata(mediaMetadata)
+                .build()
+        }
+
+        player.setMediaItems(mediaItems)
+        player.seekToDefaultPosition(startIndex)
+        player.prepare()
+        player.play()
+        
+        viewModelScope.launch {
+            _isLiked.value = repository.isSongLiked(songs[startIndex].id)
+        }
+    }
+
+    fun skipNext() {
+        controller?.seekToNextMediaItem()
+    }
+
+    fun skipPrevious() {
+        controller?.seekToPreviousMediaItem()
+    }
+
+    fun toggleShuffle() {
+        val player = controller ?: return
+        val nextShuffle = !_isShuffled.value
+        _isShuffled.value = nextShuffle
+        player.shuffleModeEnabled = nextShuffle
+    }
+
+    fun toggleRepeat() {
+        val player = controller ?: return
+        val nextMode = when (_repeatMode.value) {
+            RepeatMode.Off -> RepeatMode.One
+            RepeatMode.One -> RepeatMode.All
+            RepeatMode.All -> RepeatMode.Off
+        }
+        _repeatMode.value = nextMode
+        player.repeatMode = when (nextMode) {
+            RepeatMode.Off -> Player.REPEAT_MODE_OFF
+            RepeatMode.One -> Player.REPEAT_MODE_ONE
+            RepeatMode.All -> Player.REPEAT_MODE_ALL
+        }
+    }
+
+    fun toggleLike() {
+        val currentSong = _song.value ?: return
+        val currentlyLiked = _isLiked.value
+        viewModelScope.launch {
+            if (currentlyLiked) {
+                repository.unlikeSong(currentSong)
+            } else {
+                repository.likeSong(currentSong)
+            }
+            _isLiked.value = !currentlyLiked
+        }
     }
 
     fun play() {
-        _isPlaying.value = true
+        controller?.play()
     }
 
     fun pause() {
-        _isPlaying.value = false
+        controller?.pause()
     }
 
     fun seekTo(positionMs: Int) {
-        _currentPositionMs.value = positionMs
+        controller?.seekTo(positionMs.toLong())
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        controller?.removeListener(playerListener)
+        controllerFuture?.let { future ->
+            MediaController.releaseFuture(future)
+        }
+        controller = null
     }
 }
