@@ -27,12 +27,33 @@ class MusicRepository(
         }
     }
 
-    suspend fun getFullSong(songId: String): Song? {
+    suspend fun getFullSong(song: Song): Song? {
         return try {
-            val detail = RetrofitInstance.api.getSongById(songId)
-            if (detail.status == true) detail.toSong() else null
+            // Use the direct URL from search result (points to original fast API)
+            // This bypasses our slow Vercel Python deployment entirely
+            val detail = if (!song.songDetailUrl.isNullOrEmpty()) {
+                android.util.Log.d("MusicRepo", "Using direct URL: ${song.songDetailUrl}")
+                RetrofitInstance.api.getSongFromDirectUrl(song.songDetailUrl)
+            } else {
+                android.util.Log.d("MusicRepo", "Falling back to /song?id=${song.id}")
+                RetrofitInstance.api.getSongById(song.id)
+            }
+
+            val streamUrl = detail.mediaUrls?.kbps320
+                ?: detail.mediaUrls?.kbps160
+                ?: detail.mediaUrls?.kbps96
+                ?: detail.mediaUrl
+
+            android.util.Log.d("MusicRepo", "Got stream URL: $streamUrl")
+
+            if (!streamUrl.isNullOrEmpty()) {
+                detail.toSong().copy(songDetailUrl = song.songDetailUrl)
+            } else {
+                android.util.Log.w("MusicRepo", "No stream URL found in response!")
+                null
+            }
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("MusicRepo", "getFullSong failed: ${e.message}")
             null
         }
     }

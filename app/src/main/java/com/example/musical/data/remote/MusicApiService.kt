@@ -4,6 +4,7 @@ import com.example.musical.data.remote.dto.SaavnSearchResponse
 import com.example.musical.data.remote.dto.SaavnSongDetailResponse
 import retrofit2.http.GET
 import retrofit2.http.Query
+import retrofit2.http.Url
 
 interface MusicApiService {
     @GET("search")
@@ -14,6 +15,11 @@ interface MusicApiService {
     @GET("song")
     suspend fun getSongById(
         @Query("id") id: String
+    ): SaavnSongDetailResponse
+
+    @GET
+    suspend fun getSongFromDirectUrl(
+        @Url url: String
     ): SaavnSongDetailResponse
 
     @GET("lyrics")

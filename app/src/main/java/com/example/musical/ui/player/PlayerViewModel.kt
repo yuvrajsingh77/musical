@@ -172,14 +172,23 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
         viewModelScope.launch {
             val targetSong = songs[safeIndex]
-            // Fetch full 320kbps stream URL
-            val fullSong = try {
-                repository.getFullSong(targetSong.id)
-                    ?.takeIf { !it.streamUrl.isNullOrEmpty() }
-                    ?: targetSong
-            } catch (e: Exception) { targetSong }
+            android.util.Log.d("PlayerViewModel",
+                "Fetching full song for: ${targetSong.title}, detailUrl: ${targetSong.songDetailUrl}")
 
-            // Update song in queue with full URL
+            val fullSong = try {
+                val fetched = repository.getFullSong(targetSong)
+                android.util.Log.d("PlayerViewModel",
+                    "Full song result: ${fetched?.title}, streamUrl: ${fetched?.streamUrl}")
+                fetched?.takeIf { !it.streamUrl.isNullOrEmpty() } ?: run {
+                    android.util.Log.w("PlayerViewModel",
+                        "No full song found, using fallback vlink: ${targetSong.streamUrl}")
+                    targetSong
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("PlayerViewModel", "setQueue failed: ${e.message}")
+                targetSong
+            }
+
             val updated = _queue.value.toMutableList()
             updated[safeIndex] = fullSong
             _queue.value = updated
@@ -195,11 +204,14 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             // Pre-fetch next song in background
             if (safeIndex + 1 < songs.size) {
                 try {
-                    val nextSong = repository.getFullSong(songs[safeIndex + 1].id)
-                    if (nextSong != null && !nextSong.streamUrl.isNullOrEmpty()) {
+                    val next = songs[safeIndex + 1]
+                    val nextFull = repository.getFullSong(next)
+                    if (nextFull != null && !nextFull.streamUrl.isNullOrEmpty()) {
                         val q = _queue.value.toMutableList()
-                        q[safeIndex + 1] = nextSong
-                        _queue.value = q
+                        if (safeIndex + 1 < q.size) {
+                            q[safeIndex + 1] = nextFull
+                            _queue.value = q
+                        }
                     }
                 } catch (e: Exception) { }
             }
@@ -218,7 +230,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             val uri = song.streamUrl ?: return@mapNotNull null
             MediaItem.Builder()
                 .setUri(uri)
-                .setMimeType("audio/mpeg")
+                .setMimeType("audio/mp4")
                 .setMediaMetadata(
                     MediaMetadata.Builder()
                         .setTitle(song.title)

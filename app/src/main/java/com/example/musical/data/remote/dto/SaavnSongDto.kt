@@ -8,6 +8,11 @@ data class SaavnSearchResponse(
     val results: List<SaavnSearchResult>?
 )
 
+data class SaavnApiUrl(
+    val song: String?,
+    val album: String?
+)
+
 data class SaavnSearchResult(
     val id: String?,
     val title: String?,
@@ -16,7 +21,8 @@ data class SaavnSearchResult(
     val album: String?,
     val description: String?,
     @SerializedName("more_info") val moreInfo: SaavnMoreInfo?,
-    @SerializedName("perma_url") val permaUrl: String?
+    @SerializedName("perma_url") val permaUrl: String?,
+    @SerializedName("api_url") val apiUrl: SaavnApiUrl?
 )
 
 data class SaavnImages(
@@ -75,7 +81,8 @@ fun SaavnSearchResult.toSong(): Song = Song(
     album = album ?: "Unknown Album",
     artworkUrl = images?.large ?: images?.medium ?: image ?: "",
     durationMs = 0,
-    streamUrl = moreInfo?.vlink  // preview for now, replaced with full below
+    streamUrl = moreInfo?.vlink,
+    songDetailUrl = apiUrl?.song  // store the direct API URL
 )
 
 fun SaavnSongDetailResponse.toSong(): Song = Song(

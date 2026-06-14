@@ -7,5 +7,6 @@ data class Song(
     val album: String,
     val artworkUrl: String,
     val durationMs: Int,
-    val streamUrl: String? = null
+    val streamUrl: String? = null,
+    val songDetailUrl: String? = null  // ADD THIS
 )
