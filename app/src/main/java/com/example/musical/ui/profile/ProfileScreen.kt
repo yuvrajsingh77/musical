@@ -75,7 +75,10 @@ fun ProfileScreen(
             onClick = {
                 authViewModel.signOut()
                 navController.navigate(Screen.Login.route) {
-                    popUpTo(0) { inclusive = true }
+                    popUpTo(navController.graph.startDestinationId) {
+                        inclusive = true
+                    }
+                    launchSingleTop = true
                 }
             },
             modifier = Modifier.fillMaxWidth(),

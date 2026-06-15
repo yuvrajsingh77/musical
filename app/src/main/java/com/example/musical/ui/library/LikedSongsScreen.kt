@@ -20,14 +20,20 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.musical.ui.components.SongCard
 import com.example.musical.ui.navigation.Screen
+import com.example.musical.ui.player.PlayerViewModel
+import com.example.musical.data.model.Song
+
+// No-op extension to keep the requested queue map expression compilation clean
+private fun Song.toSong() = this
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LikedSongsScreen(
     viewModel: LibraryViewModel,
-    navController: NavController
+    navController: NavController,
+    playerViewModel: PlayerViewModel
 ) {
-    val likedSongs by viewModel.likedSongs.collectAsState()
+    val songs by viewModel.likedSongs.collectAsState()
 
     Scaffold(
         topBar = {
@@ -57,7 +63,7 @@ fun LikedSongsScreen(
                     )
                 )
         ) {
-            if (likedSongs.isEmpty()) {
+            if (songs.isEmpty()) {
                 Column(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.Center,
@@ -83,7 +89,7 @@ fun LikedSongsScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     // Chunk liked songs in pairs to show them side-by-side using SongCard
-                    val chunkedSongs = likedSongs.chunked(2)
+                    val chunkedSongs = songs.chunked(2)
                     items(chunkedSongs) { pair ->
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -93,6 +99,7 @@ fun LikedSongsScreen(
                                 SongCard(
                                     song = song,
                                     onClick = {
+                                        playerViewModel.setQueue(songs.map { it.toSong() }, songs.indexOf(song))
                                         navController.navigate(Screen.Player.createRoute(song.id))
                                     },
                                     modifier = Modifier.weight(1f)

@@ -19,10 +19,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.example.musical.data.local.MusicalDatabase
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.musical.ui.library.toSong
 import com.example.musical.ui.navigation.Screen
 import com.example.musical.ui.player.PlayerViewModel
+import com.example.musical.ui.playlist.PlaylistViewModel
 import com.example.musical.ui.search.SearchSongRow
 import kotlinx.coroutines.launch
 
@@ -33,23 +34,17 @@ fun PlaylistScreen(
     navController: NavController,
     playerViewModel: PlayerViewModel
 ) {
-    val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    val db = remember { MusicalDatabase.getInstance(context) }
-
-    // Fetch playlist name
-    var playlistName by remember { mutableStateOf("Playlist") }
-    LaunchedEffect(playlistId) {
-        val playlist = db.playlistDao().getPlaylistById(playlistId)
-        if (playlist != null) {
-            playlistName = playlist.name
-        }
-    }
-
-    // Fetch songs in playlist
-    val playlistSongsEntity by db.playlistDao().getSongsInPlaylist(playlistId).collectAsState(initial = emptyList())
+    val viewModel: PlaylistViewModel = viewModel()
+    val playlistName by viewModel.playlistName.collectAsState()
+    val playlistSongsEntity by viewModel.songs.collectAsState()
     val songs = remember(playlistSongsEntity) { playlistSongsEntity.map { it.toSong() } }
     val totalDurationMs = remember(songs) { songs.sumOf { it.durationMs.toLong() } }
+    val isLoading by viewModel.isLoading.collectAsState()
+
+    LaunchedEffect(playlistId) {
+        viewModel.loadPlaylist(playlistId)
+    }
 
     Scaffold(
         topBar = {
@@ -132,9 +127,7 @@ fun PlaylistScreen(
                             val dismissState = rememberSwipeToDismissBoxState(
                                 confirmValueChange = { value ->
                                     if (value == SwipeToDismissBoxValue.EndToStart) {
-                                        coroutineScope.launch {
-                                            db.playlistDao().removeSongFromPlaylist(playlistId, song.id)
-                                        }
+                                        viewModel.removeSong(playlistId, song.id)
                                         true
                                     } else {
                                         false

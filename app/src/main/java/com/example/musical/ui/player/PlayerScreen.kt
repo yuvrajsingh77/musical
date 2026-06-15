@@ -34,6 +34,7 @@ import com.example.musical.data.local.MusicalDatabase
 import com.example.musical.data.local.entities.PlaylistSongCrossRef
 import com.example.musical.data.model.Song
 import com.example.musical.ui.util.PaletteUtils
+import com.example.musical.ui.util.formatTime
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -63,8 +64,12 @@ fun PlayerScreen(
     )
 
     // Set song on viewModel
-    LaunchedEffect(song) {
-        viewModel.setSong(song)
+    LaunchedEffect(song.id) {
+        // Only call setSong if this song isn't already loaded
+        // to avoid re-fetching when PlayerScreen recomposes
+        if (viewModel.song.value?.id != song.id) {
+            viewModel.setSong(song)
+        }
     }
 
     // Playback Gestures State
@@ -419,9 +424,3 @@ fun PlayerScreen(
     }
 }
 
-private fun formatTime(ms: Int): String {
-    val totalSeconds = ms / 1000
-    val minutes = totalSeconds / 60
-    val seconds = totalSeconds % 60
-    return String.format("%d:%02d", minutes, seconds)
-}

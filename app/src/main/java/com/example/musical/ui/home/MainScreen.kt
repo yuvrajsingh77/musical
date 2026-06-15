@@ -40,25 +40,19 @@ fun MainScreen(
     Scaffold(
         bottomBar = {
             Column {
-                AnimatedVisibility(
-                    visible = currentSong != null,
-                    enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-                    exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
-                ) {
-                    currentSong?.let { song ->
-                        MiniPlayer(
-                            song = song,
-                            isPlaying = isPlaying,
-                            currentPositionMs = currentPositionMs,
-                            onPlayPause = {
-                                if (isPlaying) playerViewModel.pause() else playerViewModel.play()
-                            },
-                            onTap = {
-                                navController.navigate(Screen.Player.createRoute(song.id))
-                            }
-                        )
+                MiniPlayer(
+                    song = currentSong,
+                    isPlaying = isPlaying,
+                    currentPositionMs = currentPositionMs,
+                    onPlayPause = {
+                        if (isPlaying) playerViewModel.pause() else playerViewModel.play()
+                    },
+                    onTap = {
+                        currentSong?.let { song ->
+                            navController.navigate(Screen.Player.createRoute(song.id))
+                        }
                     }
-                }
+                )
                 MusicalBottomNavigation(navController)
             }
         }

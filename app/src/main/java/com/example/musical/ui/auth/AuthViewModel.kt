@@ -25,6 +25,18 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
     fun signUp(name: String, email: String, password: String) {
+        if (name.isBlank()) {
+            _errorMessage.value = "Please enter your name"
+            return
+        }
+        if (!isValidEmail(email)) {
+            _errorMessage.value = "Please enter a valid email address"
+            return
+        }
+        if (!isValidPassword(password)) {
+            _errorMessage.value = "Password must be 8+ chars with uppercase, lowercase and number"
+            return
+        }
         viewModelScope.launch {
             _isLoading.value = true
             _errorMessage.value = null
@@ -45,6 +57,14 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun signIn(email: String, password: String) {
+        if (!isValidEmail(email)) {
+            _errorMessage.value = "Please enter a valid email address"
+            return
+        }
+        if (password.length < 6) {
+            _errorMessage.value = "Password must be at least 6 characters"
+            return
+        }
         viewModelScope.launch {
             _isLoading.value = true
             _errorMessage.value = null
@@ -64,5 +84,16 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         auth.signOut()
         _currentUser.value = null
         _errorMessage.value = null
+    }
+
+    private fun isValidEmail(email: String): Boolean {
+        return android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
+    }
+
+    private fun isValidPassword(password: String): Boolean {
+        return password.length >= 8 &&
+            password.any { it.isUpperCase() } &&
+            password.any { it.isLowerCase() } &&
+            password.any { it.isDigit() }
     }
 }

@@ -26,17 +26,18 @@ import com.example.musical.data.model.Song
 
 @Composable
 fun MiniPlayer(
-    song: Song,
+    song: Song?,
     isPlaying: Boolean,
     currentPositionMs: Int,
     onPlayPause: () -> Unit,
     onTap: () -> Unit
 ) {
     AnimatedVisibility(
-        visible = true,
+        visible = song != null,
         enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
         exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
     ) {
+        song ?: return@AnimatedVisibility
         Surface(
             modifier = Modifier
                 .fillMaxWidth()

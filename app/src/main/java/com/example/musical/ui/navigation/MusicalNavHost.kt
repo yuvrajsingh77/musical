@@ -84,7 +84,8 @@ fun MusicalNavHost(
         composable(Screen.LikedSongs.route) {
             LikedSongsScreen(
                 viewModel = libraryViewModel,
-                navController = navController
+                navController = navController,
+                playerViewModel = playerViewModel
             )
         }
         composable(

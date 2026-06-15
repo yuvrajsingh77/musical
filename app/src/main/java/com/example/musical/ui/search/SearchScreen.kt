@@ -4,25 +4,26 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
@@ -31,6 +32,7 @@ import com.example.musical.ui.components.ErrorView
 import com.example.musical.ui.components.ShimmerListItem
 import com.example.musical.ui.navigation.Screen
 import com.example.musical.ui.player.PlayerViewModel
+import com.example.musical.ui.util.formatTime
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -96,7 +98,11 @@ fun SearchScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     items(allCategories) { (name, color) ->
-                        CategoryCard(name = name, color = color)
+                        CategoryCard(
+                            name = name,
+                            color = color,
+                            onClick = { searchViewModel.onQueryChanged(name) }
+                        )
                     }
                 }
             }
@@ -203,12 +209,13 @@ fun SearchSongRow(
 }
 
 @Composable
-fun CategoryCard(name: String, color: Color) {
+fun CategoryCard(name: String, color: Color, onClick: () -> Unit = {}) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(100.dp)
             .background(color, RoundedCornerShape(8.dp))
+            .clickable { onClick() }
             .padding(12.dp)
     ) {
         Text(
@@ -219,11 +226,4 @@ fun CategoryCard(name: String, color: Color) {
             modifier = Modifier.align(Alignment.TopStart)
         )
     }
-}
-
-private fun formatTime(ms: Int): String {
-    val totalSeconds = ms / 1000
-    val minutes = totalSeconds / 60
-    val seconds = totalSeconds % 60
-    return String.format("%d:%02d", minutes, seconds)
 }

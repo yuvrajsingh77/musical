@@ -16,11 +16,16 @@ import com.example.musical.data.repository.MusicRepository
 import com.example.musical.service.MusicService
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 sealed class RepeatMode {
     object Off : RepeatMode()
@@ -32,6 +37,24 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private var controller: MediaController? = null
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var pendingQueue: Pair<List<Song>, Int>? = null
+    private val queueMutex = Mutex()
+    private var currentQueueJob: Job? = null
+    private var positionUpdateJob: Job? = null
+
+    private fun startPositionUpdates() {
+        positionUpdateJob?.cancel()
+        positionUpdateJob = viewModelScope.launch {
+            while (true) {
+                _currentPositionMs.value = controller?.currentPosition?.toInt() ?: 0
+                delay(500)
+            }
+        }
+    }
+
+    private fun stopPositionUpdates() {
+        positionUpdateJob?.cancel()
+        positionUpdateJob = null
+    }
 
     private val repository: MusicRepository by lazy {
         val db = MusicalDatabase.getInstance(application)
@@ -74,25 +97,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             if (index >= 0 && index < _queue.value.size) {
                 val currentSong = _queue.value[index]
                 _song.value = currentSong
-                viewModelScope.launch {
-                    _isLiked.value = repository.isSongLiked(currentSong.id)
-                }
-            } else if (mediaItem != null) {
-                val uri = mediaItem.localConfiguration?.uri?.toString()
-                val title = mediaItem.mediaMetadata.title?.toString() ?: "Unknown Song"
-                val artist = mediaItem.mediaMetadata.artist?.toString() ?: "Unknown Artist"
-                val artworkUrl = mediaItem.mediaMetadata.artworkUri?.toString() ?: ""
-                val currentSong = Song(
-                    id = uri ?: "",
-                    title = title,
-                    artist = artist,
-                    album = "Unknown Album",
-                    artworkUrl = artworkUrl,
-                    durationMs = player.duration.toInt(),
-                    streamUrl = uri
-                )
-                _song.value = currentSong
-                viewModelScope.launch {
+                viewModelScope.launch(Dispatchers.IO) {
+                    repository.markAsPlayed(currentSong)
                     _isLiked.value = repository.isSongLiked(currentSong.id)
                 }
             }
@@ -100,6 +106,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
         override fun onIsPlayingChanged(playing: Boolean) {
             _isPlaying.value = playing
+            if (playing) startPositionUpdates() else stopPositionUpdates()
         }
     }
 
@@ -121,6 +128,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 player?.let {
                     _isPlaying.value = it.isPlaying
                     _currentPositionMs.value = it.currentPosition.toInt()
+                    if (it.isPlaying) {
+                        startPositionUpdates()
+                    }
                     _isShuffled.value = it.shuffleModeEnabled
                     _repeatMode.value = when (it.repeatMode) {
                         Player.REPEAT_MODE_ONE -> RepeatMode.One
@@ -136,26 +146,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 e.printStackTrace()
             }
         }, MoreExecutors.directExecutor())
-
-        viewModelScope.launch {
-            var lastTrackId: String? = null
-            while (true) {
-                controller?.let { player ->
-                    _currentPositionMs.value = player.currentPosition.toInt()
-                    _isPlaying.value = player.isPlaying
-
-                    if (player.isPlaying) {
-                        _song.value?.let { currentSong ->
-                            if (lastTrackId != currentSong.id) {
-                                lastTrackId = currentSong.id
-                                repository.markAsPlayed(currentSong)
-                            }
-                        }
-                    }
-                }
-                delay(500)
-            }
-        }
     }
 
     fun setSong(song: Song) {
@@ -165,55 +155,66 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     fun setQueue(songs: List<Song>, startIndex: Int) {
         if (songs.isEmpty()) return
-        val safeIndex = startIndex.coerceIn(0, songs.size - 1)
-        _queue.value = songs
-        _currentIndex.value = safeIndex
-        _song.value = songs[safeIndex]
+        // Cancel any in-progress queue fetch
+        currentQueueJob?.cancel()
+        currentQueueJob = viewModelScope.launch {
+            val safeIndex = startIndex.coerceIn(0, songs.size - 1)
+            queueMutex.withLock {
+                _queue.value = songs
+                _currentIndex.value = safeIndex
+                _song.value = songs[safeIndex]
+            }
 
-        viewModelScope.launch {
             val targetSong = songs[safeIndex]
             android.util.Log.d("PlayerViewModel",
-                "Fetching full song for: ${targetSong.title}, detailUrl: ${targetSong.songDetailUrl}")
+                "Fetching full song: ${targetSong.title}, url: ${targetSong.songDetailUrl}")
 
             val fullSong = try {
                 val fetched = repository.getFullSong(targetSong)
-                android.util.Log.d("PlayerViewModel",
-                    "Full song result: ${fetched?.title}, streamUrl: ${fetched?.streamUrl}")
-                fetched?.takeIf { !it.streamUrl.isNullOrEmpty() } ?: run {
-                    android.util.Log.w("PlayerViewModel",
-                        "No full song found, using fallback vlink: ${targetSong.streamUrl}")
-                    targetSong
-                }
+                fetched?.takeIf { !it.streamUrl.isNullOrEmpty() } ?: targetSong
             } catch (e: Exception) {
-                android.util.Log.e("PlayerViewModel", "setQueue failed: ${e.message}")
+                android.util.Log.e("PlayerViewModel", "getFullSong failed: ${e.message}")
                 targetSong
             }
 
-            val updated = _queue.value.toMutableList()
-            updated[safeIndex] = fullSong
-            _queue.value = updated
-            _song.value = fullSong
+            if (!isActive) return@launch // Job was cancelled, don't apply stale data
+
+            queueMutex.withLock {
+                val updated = _queue.value.toMutableList()
+                if (safeIndex < updated.size) {
+                    updated[safeIndex] = fullSong
+                    _queue.value = updated
+                    _song.value = fullSong
+                }
+            }
+
+            android.util.Log.d("PlayerViewModel",
+                "Playing: ${fullSong.title} | streamUrl: ${fullSong.streamUrl}")
 
             val player = controller
             if (player == null) {
-                pendingQueue = Pair(updated, safeIndex)
+                pendingQueue = Pair(_queue.value, safeIndex)
             } else {
-                applyQueue(player, updated, safeIndex)
+                applyQueue(player, _queue.value, safeIndex)
             }
 
-            // Pre-fetch next song in background
-            if (safeIndex + 1 < songs.size) {
+            // Pre-fetch next song only if job not cancelled
+            if (isActive && safeIndex + 1 < songs.size) {
                 try {
                     val next = songs[safeIndex + 1]
                     val nextFull = repository.getFullSong(next)
-                    if (nextFull != null && !nextFull.streamUrl.isNullOrEmpty()) {
-                        val q = _queue.value.toMutableList()
-                        if (safeIndex + 1 < q.size) {
-                            q[safeIndex + 1] = nextFull
-                            _queue.value = q
+                    if (isActive && nextFull != null && !nextFull.streamUrl.isNullOrEmpty()) {
+                        queueMutex.withLock {
+                            val q = _queue.value.toMutableList()
+                            if (safeIndex + 1 < q.size) {
+                                q[safeIndex + 1] = nextFull
+                                _queue.value = q
+                            }
                         }
                     }
-                } catch (e: Exception) { }
+                } catch (e: Exception) {
+                    android.util.Log.e("PlayerViewModel", "Pre-fetch failed: ${e.message}")
+                }
             }
         }
     }
@@ -230,7 +231,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             val uri = song.streamUrl ?: return@mapNotNull null
             MediaItem.Builder()
                 .setUri(uri)
-                .setMimeType("audio/mp4")
                 .setMediaMetadata(
                     MediaMetadata.Builder()
                         .setTitle(song.title)
@@ -307,10 +307,13 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     override fun onCleared() {
         super.onCleared()
+        stopPositionUpdates()
+        currentQueueJob?.cancel()
         controller?.removeListener(playerListener)
+        controller = null
         controllerFuture?.let { future ->
             MediaController.releaseFuture(future)
         }
-        controller = null
+        controllerFuture = null
     }
 }

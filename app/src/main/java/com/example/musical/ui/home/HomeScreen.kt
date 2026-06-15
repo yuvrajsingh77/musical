@@ -59,22 +59,22 @@ fun HomeScreen(
                 }
                 
                 item {
-                    SectionTitle("Daily Mix")
+                    SectionTitle("Arijit Singh Mix")
                     ShimmerRow()
                 }
                 
                 item {
-                    SectionTitle("Trending Now")
+                    SectionTitle("Bollywood Trending")
                     ShimmerRow()
                 }
 
                 item {
-                    SectionTitle("New Releases")
+                    SectionTitle("New Hindi Releases")
                     ShimmerRow()
                 }
 
                 item {
-                    SectionTitle("Top Charts")
+                    SectionTitle("Punjabi Hits")
                     ShimmerRow()
                 }
             }
@@ -112,7 +112,7 @@ fun HomeScreen(
                 }
                 
                 item {
-                    SectionTitle("Daily Mix")
+                    SectionTitle("Arijit Singh Mix")
                     SongSectionRow(
                         songs = dailyMix,
                         navController = navController,
@@ -121,7 +121,7 @@ fun HomeScreen(
                 }
                 
                 item {
-                    SectionTitle("Trending Now")
+                    SectionTitle("Bollywood Trending")
                     SongSectionRow(
                         songs = trendingNow,
                         navController = navController,
@@ -130,7 +130,7 @@ fun HomeScreen(
                 }
 
                 item {
-                    SectionTitle("New Releases")
+                    SectionTitle("New Hindi Releases")
                     SongSectionRow(
                         songs = newReleases,
                         navController = navController,
@@ -139,7 +139,7 @@ fun HomeScreen(
                 }
 
                 item {
-                    SectionTitle("Top Charts")
+                    SectionTitle("Punjabi Hits")
                     SongSectionRow(
                         songs = topCharts,
                         navController = navController,
@@ -178,7 +178,22 @@ fun HomeHeader(userName: String?) {
 
 @Composable
 fun FeaturedBanner(songs: List<Song>, navController: NavController, playerViewModel: PlayerViewModel) {
-    if (songs.isEmpty()) return
+    if (songs.isEmpty()) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp)
+                .padding(16.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFF1C1C1E))
+        ) {
+            CircularProgressIndicator(
+                color = Color(0xFF1DB954),
+                modifier = Modifier.align(Alignment.Center)
+            )
+        }
+        return
+    }
     val featured = songs.first()
     Box(
         modifier = Modifier

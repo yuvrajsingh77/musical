@@ -21,10 +21,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.example.musical.ui.components.ShimmerListItem
 import com.example.musical.ui.navigation.Screen
 import com.example.musical.ui.playlist.CreatePlaylistDialog
-import kotlinx.coroutines.delay
 
 @Composable
 fun LibraryScreen(
@@ -36,13 +34,6 @@ fun LibraryScreen(
     val playlists by viewModel.playlists.collectAsState()
 
     var showCreateDialog by remember { mutableStateOf(false) }
-    
-    // Shimmer loading trigger for premium feel
-    var isLoading by remember { mutableStateOf(true) }
-    LaunchedEffect(Unit) {
-        delay(600)
-        isLoading = false
-    }
 
     Column(
         modifier = Modifier
@@ -82,47 +73,83 @@ fun LibraryScreen(
             }
         }
 
-        if (isLoading) {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(8) {
-                    ShimmerListItem()
+        val libraryItems = listOf(
+            LibraryItem(
+                title = "Liked Songs",
+                subtitle = "Playlist • ${likedSongs.size} songs",
+                icon = Icons.Default.Favorite,
+                onClick = { navController.navigate(Screen.Player.createRoute("1")) } // Default backstack or route
+            ),
+            LibraryItem(
+                title = "Recently Played",
+                subtitle = "History • ${recentlyPlayed.size} songs",
+                icon = Icons.Default.History,
+                onClick = { }
+            )
+        )
+
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            // Fixed items (Liked Songs, Recently Played)
+            items(libraryItems) { item ->
+                // Override Liked Songs click to go to LikedSongsScreen
+                val clickAction = if (item.title == "Liked Songs") {
+                    { navController.navigate(Screen.LikedSongs.route) }
+                } else {
+                    item.onClick
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { clickAction() }
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        modifier = Modifier.size(64.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = MaterialTheme.shapes.small
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(item.icon, contentDescription = null, modifier = Modifier.size(32.dp))
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column {
+                        Text(
+                            text = item.title,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = item.subtitle,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
-        } else {
-            val libraryItems = listOf(
-                LibraryItem(
-                    title = "Liked Songs",
-                    subtitle = "Playlist • ${likedSongs.size} songs",
-                    icon = Icons.Default.Favorite,
-                    onClick = { navController.navigate(Screen.Player.createRoute("1")) } // Default backstack or route
-                ),
-                LibraryItem(
-                    title = "Recently Played",
-                    subtitle = "History • ${recentlyPlayed.size} songs",
-                    icon = Icons.Default.History,
-                    onClick = { }
-                )
-            )
 
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                // Fixed items (Liked Songs, Recently Played)
-                items(libraryItems) { item ->
-                    // Override Liked Songs click to go to LikedSongsScreen
-                    val clickAction = if (item.title == "Liked Songs") {
-                        { navController.navigate(Screen.LikedSongs.route) }
-                    } else {
-                        item.onClick
-                    }
+            // Header for user playlists
+            if (playlists.isNotEmpty()) {
+                item {
+                    Text(
+                        text = "Playlists",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                    )
+                }
+
+                items(playlists) { playlist ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { clickAction() }
+                            .clickable {
+                                navController.navigate(Screen.Playlist.createRoute(playlist.id))
+                            }
                             .padding(vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -132,73 +159,26 @@ fun LibraryScreen(
                             shape = MaterialTheme.shapes.small
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Icon(item.icon, contentDescription = null, modifier = Modifier.size(32.dp))
+                                Icon(
+                                    imageVector = Icons.Default.MusicNote,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(32.dp),
+                                    tint = Color(0xFF1DB954)
+                                )
                             }
                         }
                         Spacer(modifier = Modifier.width(16.dp))
                         Column {
                             Text(
-                                text = item.title,
+                                text = playlist.name,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = item.subtitle,
+                                text = "Playlist • Custom",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                        }
-                    }
-                }
-
-                // Header for user playlists
-                if (playlists.isNotEmpty()) {
-                    item {
-                        Text(
-                            text = "Playlists",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
-                        )
-                    }
-
-                    items(playlists) { playlist ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    navController.navigate(Screen.Playlist.createRoute(playlist.id.toString()))
-                                }
-                                .padding(vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Surface(
-                                modifier = Modifier.size(64.dp),
-                                color = MaterialTheme.colorScheme.surfaceVariant,
-                                shape = MaterialTheme.shapes.small
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = Icons.Default.MusicNote,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(32.dp),
-                                        tint = Color(0xFF1DB954)
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column {
-                                Text(
-                                    text = playlist.name,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = "Playlist • Custom",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
                         }
                     }
                 }

@@ -8,7 +8,14 @@ import com.example.musical.data.local.entities.SongEntity
 import com.example.musical.data.model.Song
 import com.example.musical.data.remote.RetrofitInstance
 import com.example.musical.data.remote.dto.toSong
+import java.io.IOException
 import kotlinx.coroutines.flow.Flow
+
+sealed class MusicResult<out T> {
+    data class Success<T>(val data: T) : MusicResult<T>()
+    data class Error(val message: String) : MusicResult<Nothing>()
+    object Loading : MusicResult<Nothing>()
+}
 
 class MusicRepository(
     private val songDao: SongDao,
@@ -21,8 +28,11 @@ class MusicRepository(
                 ?.filter { !it.id.isNullOrEmpty() }
                 ?.map { it.toSong() }
                 ?: emptyList()
+        } catch (e: IOException) {
+            android.util.Log.e("MusicRepository", "Network error: ${e.message}")
+            throw e // Let ViewModel handle and show error
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("MusicRepository", "Search failed: ${e.message}")
             emptyList()
         }
     }
@@ -64,10 +74,15 @@ class MusicRepository(
         } catch (e: Exception) { null }
     }
 
-    suspend fun getTrendingSongs(): List<Song> = searchSongs("top Bollywood 2024")
-    suspend fun getDailyMix(): List<Song> = searchSongs("Arijit Singh hits")
-    suspend fun getNewReleases(): List<Song> = searchSongs("new Hindi songs 2024")
-    suspend fun getTopCharts(): List<Song> = searchSongs("Punjabi hits 2024")
+    suspend fun getArijitSinghMix(): List<Song> = searchSongs("Arijit Singh hits")
+    suspend fun getBollywoodTrending(): List<Song> = searchSongs("top Bollywood 2024")
+    suspend fun getNewHindiReleases(): List<Song> = searchSongs("new Hindi songs 2024")
+    suspend fun getPunjabiHits(): List<Song> = searchSongs("Punjabi hits 2024")
+
+    suspend fun getDailyMix(): List<Song> = getArijitSinghMix()
+    suspend fun getTrendingSongs(): List<Song> = getBollywoodTrending()
+    suspend fun getNewReleases(): List<Song> = getNewHindiReleases()
+    suspend fun getTopCharts(): List<Song> = getPunjabiHits()
 
     fun getLikedSongs(): Flow<List<SongEntity>> {
         return songDao.getLikedSongs()
@@ -151,5 +166,9 @@ class MusicRepository(
 
     suspend fun removeSongFromPlaylist(playlistId: Long, songId: String) {
         playlistDao.removeSongFromPlaylist(playlistId, songId)
+    }
+
+    suspend fun getPlaylistById(playlistId: Long): PlaylistEntity? {
+        return playlistDao.getPlaylistById(playlistId)
     }
 }

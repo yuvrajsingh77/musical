@@ -200,14 +200,7 @@ fun LoginScreen(authViewModel: AuthViewModel) {
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
 
-                Text(
-                    text = "Test: test@musical.com / test1234",
-                    color = Color.Gray,
-                    fontSize = 14.sp,
-                    textAlign = TextAlign.Center
-                )
 
             } else {
                 // Sign Up tab

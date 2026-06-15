@@ -20,6 +20,14 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         MusicRepository(db.songDao(), db.playlistDao())
     }
 
+    val isLoading: StateFlow<Boolean> = repository.getPlaylists()
+        .map { false }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = true
+        )
+
     val likedSongs: StateFlow<List<Song>> = repository.getLikedSongs()
         .map { list -> list.map { it.toSong() } }
         .stateIn(

@@ -38,7 +38,7 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
     init {
         viewModelScope.launch {
             _query
-                .debounce(300)
+                .debounce(500)
                 .distinctUntilChanged()
                 .collect { q ->
                     if (q.isBlank()) {

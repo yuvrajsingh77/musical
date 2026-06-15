@@ -7,6 +7,10 @@ import com.example.musical.data.local.MusicalDatabase
 import com.example.musical.data.model.Song
 import com.example.musical.data.repository.MusicRepository
 import com.example.musical.ui.library.toSong
+import java.io.IOException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -85,14 +89,21 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.value = HomeUiState.Loading
         viewModelScope.launch {
             try {
-                val mix = repository.getDailyMix()
-                val trending = repository.getTrendingSongs()
-                val newReleases = repository.getNewReleases()
-                val topCharts = repository.getTopCharts()
-                _dailyMix.value = mix.ifEmpty { fallbackSongs }
-                _trendingNow.value = trending.ifEmpty { fallbackSongs.reversed() }
-                _newReleases.value = newReleases.ifEmpty { fallbackSongs.shuffled() }
-                _topCharts.value = topCharts.ifEmpty { fallbackSongs.shuffled() }
+                coroutineScope {
+                    val mixDeferred = async { repository.getDailyMix() }
+                    val trendingDeferred = async { repository.getTrendingSongs() }
+                    val newReleasesDeferred = async { repository.getNewReleases() }
+                    val topChartsDeferred = async { repository.getTopCharts() }
+
+                    val (mix, trending, newR, charts) = awaitAll(
+                        mixDeferred, trendingDeferred, newReleasesDeferred, topChartsDeferred
+                    )
+
+                    _dailyMix.value = mix.ifEmpty { fallbackSongs }
+                    _trendingNow.value = trending.ifEmpty { fallbackSongs.reversed() }
+                    _newReleases.value = newR.ifEmpty { fallbackSongs.shuffled() }
+                    _topCharts.value = charts.ifEmpty { fallbackSongs.shuffled() }
+                }
                 _uiState.value = HomeUiState.Success
             } catch (e: Exception) {
                 _dailyMix.value = fallbackSongs
