@@ -7,6 +7,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
@@ -88,6 +89,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private val _lyrics = MutableStateFlow<String?>(null)
     val lyrics: StateFlow<String?> = _lyrics.asStateFlow()
 
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
 
     private val playerListener = object : Player.Listener {
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
@@ -107,6 +111,54 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         override fun onIsPlayingChanged(playing: Boolean) {
             _isPlaying.value = playing
             if (playing) startPositionUpdates() else stopPositionUpdates()
+        }
+
+        override fun onPlaybackStateChanged(state: Int) {
+            val stateStr = when(state) {
+                Player.STATE_IDLE -> "IDLE"
+                Player.STATE_BUFFERING -> "BUFFERING"
+                Player.STATE_READY -> "READY"
+                Player.STATE_ENDED -> "ENDED"
+                else -> "UNKNOWN"
+            }
+            android.util.Log.d("PlayerState", "State changed: $stateStr")
+        }
+
+        override fun onPlayerError(error: PlaybackException) {
+            android.util.Log.e("PlayerError", "Code: ${error.errorCode}, Msg: ${error.message}")
+            
+            when (error.errorCode) {
+                PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS,
+                PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+                PlaybackException.ERROR_CODE_IO_INVALID_HTTP_CONTENT_TYPE -> {
+                    // URL expired — refresh it
+                    val currentSong = _song.value ?: return
+                    viewModelScope.launch {
+                        val refreshed = repository.getFullSong(currentSong)
+                        refreshed?.streamUrl?.let { newUrl ->
+                            val newMediaItem = MediaItem.Builder()
+                                .setUri(newUrl)
+                                .setMediaMetadata(
+                                    MediaMetadata.Builder()
+                                        .setTitle(currentSong.title)
+                                        .setArtist(currentSong.artist)
+                                        .setArtworkUri(Uri.parse(currentSong.artworkUrl))
+                                        .build()
+                                )
+                                .build()
+                            
+                            val position = controller?.currentPosition ?: 0
+                            controller?.setMediaItem(newMediaItem, position)
+                            controller?.prepare()
+                            controller?.play()
+                        }
+                    }
+                }
+                else -> {
+                    // Other error — propagate or handle
+                    _errorMessage.value = "Playback error: ${error.message}"
+                }
+            }
         }
     }
 
@@ -171,6 +223,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
             val fullSong = try {
                 val fetched = repository.getFullSong(targetSong)
+                android.util.Log.d("PlayerViewModel", "getFullSong result: $fetched")
                 fetched?.takeIf { !it.streamUrl.isNullOrEmpty() } ?: targetSong
             } catch (e: Exception) {
                 android.util.Log.e("PlayerViewModel", "getFullSong failed: ${e.message}")
@@ -220,10 +273,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun fetchLyrics() {
-        val songId = _song.value?.id ?: return
-        viewModelScope.launch {
-            _lyrics.value = repository.getLyrics(songId)
-        }
+        _lyrics.value = null
     }
 
     private fun applyQueue(player: MediaController, songs: List<Song>, startIndex: Int) {

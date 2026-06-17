@@ -60,29 +60,20 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private val fallbackSongs = listOf(
         Song("f1", "Tum Hi Ho", "Arijit Singh", "Aashiqui 2",
-            "https://upload.wikimedia.org/wikipedia/en/6/61/Aashiqui_2_soundtrack.jpg",
-            261000, "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"),
+            "https://i1.sndcdn.com/artworks-000057089738-tbeker-t500x500.jpg",
+            261000, null),
         Song("f2", "Kesariya", "Arijit Singh", "Brahmastra",
-            "https://upload.wikimedia.org/wikipedia/en/3/3b/Kesariya_single_cover.jpg",
-            263000, "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3"),
+            "https://i1.sndcdn.com/artworks-O8qABODgGHTo-0-t500x500.jpg",
+            263000, null),
         Song("f3", "Raataan Lambiyan", "Jubin Nautiyal", "Shershaah",
-            "https://upload.wikimedia.org/wikipedia/en/6/6b/Shershaah_film_poster.jpg",
-            237000, "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3"),
+            "https://i1.sndcdn.com/artworks-vNGjFbnWWCjo-0-t500x500.jpg",
+            237000, null),
         Song("f4", "Apna Bana Le", "Arijit Singh", "Bhediya",
-            "https://upload.wikimedia.org/wikipedia/en/0/04/Bhediya_film_poster.jpg",
-            258000, "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3"),
+            "https://i1.sndcdn.com/artworks-P2IGDFgbXOCJ-0-t500x500.jpg",
+            258000, null),
         Song("f5", "Jhoome Jo Pathaan", "Arijit Singh", "Pathaan",
-            "https://upload.wikimedia.org/wikipedia/en/6/6d/Pathaan_film_poster.jpg",
-            203000, "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3"),
-        Song("f6", "Lutt Putt Gaya", "Arijit Singh", "Dunki",
-            "https://upload.wikimedia.org/wikipedia/en/9/9f/Dunki_film_poster.jpg",
-            318000, "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3"),
-        Song("f7", "Wahaan", "Jasleen Royal", "12th Fail",
-            "https://upload.wikimedia.org/wikipedia/en/4/49/12th_Fail_film_poster.jpg",
-            245000, "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3"),
-        Song("f8", "Ik Vaari Aa", "Arijit Singh", "Raazi",
-            "https://upload.wikimedia.org/wikipedia/en/c/c1/Raazi_2018_film_poster.jpg",
-            294000, "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3")
+            "https://i1.sndcdn.com/artworks-7DKPcDhGWfJF-0-t500x500.jpg",
+            203000, null)
     )
 
     fun fetchData() {

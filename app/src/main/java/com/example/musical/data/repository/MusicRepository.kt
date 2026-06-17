@@ -24,65 +24,37 @@ class MusicRepository(
     suspend fun searchSongs(query: String): List<Song> {
         return try {
             val response = RetrofitInstance.api.searchSongs(query)
-            response.results
-                ?.filter { !it.id.isNullOrEmpty() }
-                ?.map { it.toSong() }
-                ?: emptyList()
-        } catch (e: IOException) {
-            android.util.Log.e("MusicRepository", "Network error: ${e.message}")
-            throw e // Let ViewModel handle and show error
+            if (response.success == true) {
+                response.results
+                    ?.filter { !it.id.isNullOrEmpty() }
+                    ?.map { it.toSong() }
+                    ?: emptyList()
+            } else emptyList()
         } catch (e: Exception) {
-            android.util.Log.e("MusicRepository", "Search failed: ${e.message}")
+            android.util.Log.e("MusicRepo", "Search failed: ${e.message}")
             emptyList()
         }
     }
 
     suspend fun getFullSong(song: Song): Song? {
         return try {
-            // Use the direct URL from search result (points to original fast API)
-            // This bypasses our slow Vercel Python deployment entirely
-            val detail = if (!song.songDetailUrl.isNullOrEmpty()) {
-                android.util.Log.d("MusicRepo", "Using direct URL: ${song.songDetailUrl}")
-                RetrofitInstance.api.getSongFromDirectUrl(song.songDetailUrl)
-            } else {
-                android.util.Log.d("MusicRepo", "Falling back to /song?id=${song.id}")
-                RetrofitInstance.api.getSongById(song.id)
-            }
-
-            val streamUrl = detail.mediaUrls?.kbps320
-                ?: detail.mediaUrls?.kbps160
-                ?: detail.mediaUrls?.kbps96
-                ?: detail.mediaUrl
-
-            android.util.Log.d("MusicRepo", "Got stream URL: $streamUrl")
-
-            if (!streamUrl.isNullOrEmpty()) {
-                detail.toSong().copy(songDetailUrl = song.songDetailUrl)
-            } else {
-                android.util.Log.w("MusicRepo", "No stream URL found in response!")
-                null
-            }
+            val query = "${song.title} ${song.artist}"
+            android.util.Log.d("MusicRepo", "Getting stream for: $query")
+            val response = RetrofitInstance.api.getStream(query)
+            if (response.success == true && response.data?.url != null) {
+                android.util.Log.d("MusicRepo", "Got URL: ${response.data.url}")
+                response.data.toSong()
+            } else null
         } catch (e: Exception) {
             android.util.Log.e("MusicRepo", "getFullSong failed: ${e.message}")
             null
         }
     }
 
-    suspend fun getLyrics(songId: String): String? {
-        return try {
-            RetrofitInstance.api.getLyrics(songId).lyrics
-        } catch (e: Exception) { null }
-    }
-
-    suspend fun getArijitSinghMix(): List<Song> = searchSongs("Arijit Singh hits")
-    suspend fun getBollywoodTrending(): List<Song> = searchSongs("top Bollywood 2024")
-    suspend fun getNewHindiReleases(): List<Song> = searchSongs("new Hindi songs 2024")
-    suspend fun getPunjabiHits(): List<Song> = searchSongs("Punjabi hits 2024")
-
-    suspend fun getDailyMix(): List<Song> = getArijitSinghMix()
-    suspend fun getTrendingSongs(): List<Song> = getBollywoodTrending()
-    suspend fun getNewReleases(): List<Song> = getNewHindiReleases()
-    suspend fun getTopCharts(): List<Song> = getPunjabiHits()
+    suspend fun getTrendingSongs(): List<Song> = searchSongs("Bollywood hits 2024")
+    suspend fun getDailyMix(): List<Song> = searchSongs("Arijit Singh")
+    suspend fun getNewReleases(): List<Song> = searchSongs("new Hindi songs 2024")
+    suspend fun getTopCharts(): List<Song> = searchSongs("Punjabi hits")
 
     fun getLikedSongs(): Flow<List<SongEntity>> {
         return songDao.getLikedSongs()

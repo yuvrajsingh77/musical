@@ -1,34 +1,18 @@
 package com.example.musical.data.remote
 
-import com.example.musical.data.remote.dto.SaavnSearchResponse
-import com.example.musical.data.remote.dto.SaavnSongDetailResponse
+import com.example.musical.data.remote.dto.RailwaySearchResponse
+import com.example.musical.data.remote.dto.RailwayStreamResponse
 import retrofit2.http.GET
 import retrofit2.http.Query
-import retrofit2.http.Url
 
 interface MusicApiService {
     @GET("search")
     suspend fun searchSongs(
-        @Query("query") query: String
-    ): SaavnSearchResponse
+        @Query("q") query: String
+    ): RailwaySearchResponse
 
-    @GET("song")
-    suspend fun getSongById(
-        @Query("id") id: String
-    ): SaavnSongDetailResponse
-
-    @GET
-    suspend fun getSongFromDirectUrl(
-        @Url url: String
-    ): SaavnSongDetailResponse
-
-    @GET("lyrics")
-    suspend fun getLyrics(
-        @Query("id") id: String
-    ): SaavnLyricsResponse
+    @GET("stream")
+    suspend fun getStream(
+        @Query("q") query: String
+    ): RailwayStreamResponse
 }
-
-data class SaavnLyricsResponse(
-    val status: Boolean?,
-    val lyrics: String?
-)
